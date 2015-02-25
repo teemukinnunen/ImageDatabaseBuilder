@@ -1,5 +1,11 @@
 import Tkinter
 
+#luokittele kuva hyvä/huono
+#			tag
+#img
+
+
+
 class ImageExplorer(Tkinter.Tk):
   def __init__(self, parent):
     Tkinter.Tk.__init__(self, parent)

@@ -27,7 +27,7 @@ def save_image_and_tags(url, tags_string):
   
   # Save tags in a text file
   text_path = './Images/' + name.split('.')[0] + '.txt'
-  print "File, tags:", text_path, tags_string
+  #print "File, tags:", text_path, tags_string
   with open(text_path, 'w') as text_file:
     text_file.write(tags_string)
   
@@ -37,15 +37,12 @@ def main():
   flickr.API_SECRET = 'ac8257dabd7125da'
   
   save_images = True
-  annotate_mode = True
-  
-  tag_qualities = {}  # tag name (string) -> quality (int)
   
   #content_type 1 = photos, 3 = 'other', 6 = photos and 'other', 7 = all
   #has_geo
   
   helsinki_id = 565346
-  image_dl_count = 1000
+  image_dl_count = 100
   per_page = min(image_dl_count, 100)
   photos = []
   for page in range(image_dl_count / per_page):
