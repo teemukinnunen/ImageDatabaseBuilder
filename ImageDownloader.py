@@ -16,7 +16,7 @@ def download_image(url):
   image = Image.open(s)
   return image
 
-def save_image_and_tags(url, tags_string):
+def save_image_and_data(url, description, tags_string):
   # Download image
   image = download_image(url)
   name = get_image_name(url)
@@ -42,8 +42,8 @@ def main():
   #has_geo
   
   helsinki_id = 565346
-  image_dl_count = 100
-  per_page = min(image_dl_count, 100)
+  image_dl_count = 5000
+  per_page = min(image_dl_count, 300)
   photos = []
   for page in range(image_dl_count / per_page):
     page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page)
@@ -58,8 +58,12 @@ def main():
     if tags != None:
       tags_string = ', '.join([tag.text.encode('utf-8') for tag in tags])
     
+    title = photo.__getattr__('title')
+    description = photo.__getattr__('description')
+    #print "Title:", title.encode('utf-8'), "Description:", description.encode('utf-8')
+    
     if save_images:
-      save_image_and_tags(url, tags_string)
+      save_image_and_data(url, description, tags_string)
     
     '''exif = photo.getExif()
     for tag in exif.tags:
