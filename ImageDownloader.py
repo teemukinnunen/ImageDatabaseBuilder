@@ -1,11 +1,9 @@
 import flickr
 import urllib, urlparse
-import os
-import sys
+import os, sys, argparse
 import Image
-import shutil
-import StringIO
-import collections
+import shutil, json
+import StringIO, collections
 
 def get_image_name(url):
   return url.split('/')[-1]
@@ -16,33 +14,58 @@ def download_image(url):
   image = Image.open(s)
   return image
 
-def save_image_and_data(url, description, tags_string):
+def save_image_and_data(image_folder, url, description, tags):
+  # Make folder if it doesn't exist
+  if not os.path.exists(image_folder):
+    os.makedirs(image_folder)
+    
   # Download image
   image = download_image(url)
   name = get_image_name(url)
 
   # Save image
-  image_path = './Images/' + name
+  image_path = image_folder + name
   image.save(image_path)
   
-  # Save tags in a text file
-  text_path = './Images/' + name.split('.')[0] + '.txt'
+  # Save metadata in a text file
+  metadata = {}
+  metadata['url'] = url
+  metadata['id'] = ''
+  metadata['owner'] = ''
+  metadata['tags'] = tags
+  metadata['description'] = description
+  metadata['gps'] = ''
+  text_path = image_folder + name.split('.')[0] + '.txt'
+  with open(text_path, 'w') as f:
+    json.dump(metadata, f)
+  
   #print "File, tags:", text_path, tags_string
-  with open(text_path, 'w') as text_file:
-    text_file.write(tags_string)
+  '''with open(text_path, 'w') as text_file:
+    text_file.write(tags_string)'''
   
 
-def main():
+def main(argv):
   flickr.API_KEY = 'ba158eb66e7f9f3448a275079e6f38e4'
   flickr.API_SECRET = 'ac8257dabd7125da'
   
-  save_images = True
+  # Script parameters
+  save_images = None
+  image_folder = None
+  image_dl_count = None
   
-  #content_type 1 = photos, 3 = 'other', 6 = photos and 'other', 7 = all
-  #has_geo
+  parser = argparse.ArgumentParser(description='This script downloads images from Flickr.')
+  parser.add_argument('-s', '--save', help='Save bool', required=True)
+  parser.add_argument('-f', '--folder', help='Save folder', required=True)
+  parser.add_argument('-a', '--amount', help='Image dl amount', required=True)
+  args = parser.parse_args()
+  
+  save_images = args.save == 'true'
+  image_folder = './' + args.folder + '/'
+  image_dl_count = int(args.amount)
+  
+  print "Parameters:", save_images, image_folder, image_dl_count
   
   helsinki_id = 565346
-  image_dl_count = 5000
   per_page = min(image_dl_count, 300)
   photos = []
   for page in range(image_dl_count / per_page):
@@ -53,22 +76,19 @@ def main():
   for photo in photos:
     url = photo.getSmall()
     
-    tags = photo.__getattr__('tags')
-    tags_string = ''
-    if tags != None:
-      tags_string = ', '.join([tag.text.encode('utf-8') for tag in tags])
+    tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
     
     title = photo.__getattr__('title')
     description = photo.__getattr__('description')
     #print "Title:", title.encode('utf-8'), "Description:", description.encode('utf-8')
     
     if save_images:
-      save_image_and_data(url, description, tags_string)
+      save_image_and_data(image_folder, url, description, tags)
     
     '''exif = photo.getExif()
     for tag in exif.tags:
       print '%s: %s' % (tag.label, tag.raw)'''
-    
+  
   print "\nPhotos:", len(photos), "Image download count:", image_dl_count
   seen = set()
   uniq = [x for x in urls if x not in seen and not seen.add(x)]
@@ -76,4 +96,4 @@ def main():
   
   
 if __name__ == '__main__':
-  main()
+  main(sys.argv[1:])
