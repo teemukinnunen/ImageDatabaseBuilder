@@ -14,7 +14,7 @@ def download_image(url):
   image = Image.open(s)
   return image
 
-def save_image_and_data(image_folder, url, description, tags):
+def save_image_and_data(image_folder, url, title, id, owner, tags, description, gps):
   # Make folder if it doesn't exist
   if not os.path.exists(image_folder):
     os.makedirs(image_folder)
@@ -30,6 +30,7 @@ def save_image_and_data(image_folder, url, description, tags):
   # Save metadata in a text file
   metadata = {}
   metadata['url'] = url
+  metadata['title'] = title
   metadata['id'] = ''
   metadata['owner'] = ''
   metadata['tags'] = tags
@@ -76,14 +77,16 @@ def main(argv):
   for photo in photos:
     url = photo.getSmall()
     
-    tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
+    tags = []
+    if photo.__getattr__('tags') != None:
+      tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
     
-    title = photo.__getattr__('title')
-    description = photo.__getattr__('description')
+    title = photo.__getattr__('title').encode('utf-8')
+    description = photo.__getattr__('description').encode('utf-8')
     #print "Title:", title.encode('utf-8'), "Description:", description.encode('utf-8')
-    
+    gps = photo.getLocation()
     if save_images:
-      save_image_and_data(image_folder, url, description, tags)
+      save_image_and_data(image_folder, url, title, 'id', 'owner', tags, description, gps)
     
     '''exif = photo.getExif()
     for tag in exif.tags:
