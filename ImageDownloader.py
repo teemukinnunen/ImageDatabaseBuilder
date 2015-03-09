@@ -31,40 +31,40 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   metadata = {}
   metadata['url'] = url
   metadata['title'] = title
-  metadata['id'] = ''
-  metadata['owner'] = ''
+  metadata['id'] = id
+  metadata['owner'] = owner
   metadata['tags'] = tags
   metadata['description'] = description
-  metadata['gps'] = ''
+  metadata['gps'] = gps
   text_path = image_folder + name.split('.')[0] + '.txt'
   with open(text_path, 'w') as f:
-    json.dump(metadata, f)
-  
-  #print "File, tags:", text_path, tags_string
-  '''with open(text_path, 'w') as text_file:
-    text_file.write(tags_string)'''
-  
+    json.dump(metadata, f)  
 
 def main(argv):
-  flickr.API_KEY = 'ba158eb66e7f9f3448a275079e6f38e4'
-  flickr.API_SECRET = 'ac8257dabd7125da'
+  with open('API key here.txt', 'r') as f:
+    lines = f.read().splitlines()
+    if len(lines) >= 2:
+      flickr.API_KEY = lines[0]
+      flickr.API_SECRET = lines[1]
+    else:
+      print "Insert API_KEY and API_SECRET to 'API key here.txt'"
   
   # Script parameters
-  save_images = None
+  save_images = True
   image_folder = None
   image_dl_count = None
   
   parser = argparse.ArgumentParser(description='This script downloads images from Flickr.')
-  parser.add_argument('-s', '--save', help='Save bool', required=True)
-  parser.add_argument('-f', '--folder', help='Save folder', required=True)
-  parser.add_argument('-a', '--amount', help='Image dl amount', required=True)
+  #parser.add_argument('-s', '--save', help='Save bool', required=False)
+  parser.add_argument('-f', '--folder_name', help='Save folder name', required=True)
+  parser.add_argument('-a', '--photo_amount', help='Amount of images to download', required=True)
   args = parser.parse_args()
   
-  save_images = args.save == 'true'
-  image_folder = './' + args.folder + '/'
-  image_dl_count = int(args.amount)
+  #save_images = (args.save == None) or args.save
+  image_folder = './' + args.folder_name + '/'
+  image_dl_count = int(args.photo_amount)
   
-  print "Parameters:", save_images, image_folder, image_dl_count
+  print "Parameters:", image_folder, image_dl_count
   
   helsinki_id = 565346
   per_page = min(image_dl_count, 300)
@@ -72,27 +72,30 @@ def main(argv):
   for page in range(image_dl_count / per_page):
     page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page)
     photos.extend(page_photos)
-  
+  print "Found", len(photos), "photos"
   urls = []
-  for photo in photos:
+  for i in range(len(photos)):
+    print "Downloading photos... {}/{}\r".format(i+1, len(photos)), 
+    photo = photos[i]
     url = photo.getSmall()
     
     tags = []
     if photo.__getattr__('tags') != None:
       tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
     
-    title = photo.__getattr__('title').encode('utf-8')
-    description = photo.__getattr__('description').encode('utf-8')
-    #print "Title:", title.encode('utf-8'), "Description:", description.encode('utf-8')
+    title = photo.title.encode('utf-8')
+    description = photo.description.encode('utf-8')
     gps = photo.getLocation()
+    id = photo.id.encode('utf-8')
+    owner = photo.owner.id.encode('utf-8')
     if save_images:
-      save_image_and_data(image_folder, url, title, 'id', 'owner', tags, description, gps)
+      save_image_and_data(image_folder, url, title, id, owner, tags, description, gps)
     
     '''exif = photo.getExif()
     for tag in exif.tags:
       print '%s: %s' % (tag.label, tag.raw)'''
   
-  print "\nPhotos:", len(photos), "Image download count:", image_dl_count
+  print "Photos:", len(photos), "Image download count:", image_dl_count
   seen = set()
   uniq = [x for x in urls if x not in seen and not seen.add(x)]
   print "Duplicates: ", len(urls) - len(uniq)
