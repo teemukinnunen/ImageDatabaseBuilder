@@ -55,47 +55,50 @@ def main(argv):
   image_dl_count = None
   
   parser = argparse.ArgumentParser(description='This script downloads images from Flickr.')
-  #parser.add_argument('-s', '--save', help='Save bool', required=False)
   parser.add_argument('-f', '--folder_name', help='Save folder name', required=True)
   parser.add_argument('-a', '--photo_amount', help='Amount of images to download', required=True)
   args = parser.parse_args()
   
-  #save_images = (args.save == None) or args.save
   image_folder = './' + args.folder_name + '/'
   image_dl_count = int(args.photo_amount)
   
   print "Parameters:", image_folder, image_dl_count
   
+  new_york_id = 2459115
   helsinki_id = 565346
   per_page = min(image_dl_count, 300)
   photos = []
   for page in range(image_dl_count / per_page):
-    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page)
+    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=315532800)
     photos.extend(page_photos)
   print "Found", len(photos), "photos"
   urls = []
+  failed_downloads = 0
   for i in range(len(photos)):
-    print "Downloading photos... {}/{}\r".format(i+1, len(photos)), 
-    photo = photos[i]
-    url = photo.getSmall()
-    
-    tags = []
-    if photo.__getattr__('tags') != None:
-      tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
-    
-    title = photo.title.encode('utf-8')
-    description = photo.description.encode('utf-8')
-    gps = photo.getLocation()
-    id = photo.id.encode('utf-8')
-    owner = photo.owner.id.encode('utf-8')
-    if save_images:
-      save_image_and_data(image_folder, url, title, id, owner, tags, description, gps)
-    
+    try:
+      print "Downloading photos... {}/{}\r".format(i+1, len(photos)), 
+      photo = photos[i]
+      url = photo.getMedium()
+      
+      tags = []
+      if photo.__getattr__('tags') != None:
+        tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
+      
+      title = photo.title.encode('utf-8')
+      description = photo.description.encode('utf-8')
+      gps = photo.getLocation()
+      id = photo.id.encode('utf-8')
+      owner = photo.owner.id.encode('utf-8')
+      if save_images:
+        save_image_and_data(image_folder, url, title, id, owner, tags, description, gps)
+    except:
+      print "Exception while downloading photo at index {}".format(i)
+      failed_downloads += 1
     '''exif = photo.getExif()
     for tag in exif.tags:
       print '%s: %s' % (tag.label, tag.raw)'''
   
-  print "Photos:", len(photos), "Image download count:", image_dl_count
+  print "Photos:", len(photos), "Successful downloads:", len(photos) - failed_downloads
   seen = set()
   uniq = [x for x in urls if x not in seen and not seen.add(x)]
   print "Duplicates: ", len(urls) - len(uniq)
