@@ -35,7 +35,10 @@ class ImageExplorer(Tkinter.Tk):
     self.update_rating()
     self.lbl_title['text'] = 'Title: ' + md['title']
     self.lbl_description['text'] = 'Description: ' + md['description']
-    self.lbl_tags['text'] = 'Tags: ' + ', '.join(md['tags'])
+    tags_string = ', '.join(md['tags'])
+    if len(tags_string) > 50:
+      tags_string = tags_string[:50]
+    self.lbl_tags['text'] = 'Tags: ' + tags_string
     self.lbl_owner['text'] = 'Owner: ' + md['owner']
     self.lbl_id['text'] = 'ID: ' + md['id']
     self.lbl_gps['text'] = 'GPS: ' + ', '.join(md['gps'])
