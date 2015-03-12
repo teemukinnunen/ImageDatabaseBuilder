@@ -14,7 +14,7 @@ def download_image(url):
   image = Image.open(s)
   return image
 
-def save_image_and_data(image_folder, url, title, id, owner, tags, description, gps):
+def save_image_and_data(image_folder, url, title, id, owner, tags, description, gps, datetaken):
   # Make folder if it doesn't exist
   if not os.path.exists(image_folder):
     os.makedirs(image_folder)
@@ -36,6 +36,7 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   metadata['tags'] = tags
   metadata['description'] = description
   metadata['gps'] = gps
+  metadata['datetaken'] = datetaken
   text_path = image_folder + name.split('.')[0] + '.txt'
   with open(text_path, 'w') as f:
     json.dump(metadata, f)  
@@ -69,7 +70,8 @@ def main(argv):
   per_page = min(image_dl_count, 300)
   photos = []
   for page in range(image_dl_count / per_page):
-    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=315532800)
+    #page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=315532800)
+    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page)
     photos.extend(page_photos)
   print "Found", len(photos), "photos"
   urls = []
@@ -89,8 +91,10 @@ def main(argv):
       gps = photo.getLocation()
       id = photo.id.encode('utf-8')
       owner = photo.owner.id.encode('utf-8')
+      datetaken = '' #photo.datetaken
+      #print datetaken
       if save_images:
-        save_image_and_data(image_folder, url, title, id, owner, tags, description, gps)
+        save_image_and_data(image_folder, url, title, id, owner, tags, description, gps, datetaken)
     except:
       print "Exception while downloading photo at index {}".format(i)
       failed_downloads += 1
