@@ -3,6 +3,7 @@ import math
 import string
 from os import listdir
 from os.path import isfile, join
+import pylab as pl
 
 class ImageInfo:
   def __init__(self, filename, rating):
@@ -14,10 +15,10 @@ class ImageInfo:
     with open(filename + '.txt', 'r') as f:
       md = json.load(f)
       self.tags = md['tags']
-      title = md['title'].encode('utf-8').translate(string.maketrans('',''), string.punctuation)
+      '''title = md['title'].encode('utf-8').translate(string.maketrans('',''), string.punctuation)
       title_tags = title.split(' ')
       if len(title_tags) != 0:
-        self.tags.extend(title_tags)
+        self.tags.extend(title_tags)'''
       self.tags = [tag for tag in self.tags if len(tag) > 0]
 
 def get_images_in_folder(folder):
@@ -26,7 +27,7 @@ def get_images_in_folder(folder):
     all_file_names.sort()
     files = [folder + all_file_names[i].split('.')[0] for i in range(0, len(all_file_names), 2)]
     return files
-    
+
 def main(folder):
   # Read the manually created ratings
   with open(folder + 'ratings.txt', 'r') as f:
@@ -40,6 +41,49 @@ def main(folder):
     img = ImageInfo(filename, ratings[filename])
     rated_images.append(img)
   
+  bad_hist = {}
+  good_hist = {}
+  all_tags = []
+  for img in rated_images:
+    for tag in img.tags:
+      if tag not in all_tags:
+        all_tags.append(tag)
+      bad_hist[tag] = 0
+      good_hist[tag] = 0
+  for img in rated_images:
+    for tag in img.tags:
+      if img.rating == 1:
+        good_hist[tag] += 1
+      elif img.rating == -1:
+        bad_hist[tag] += 1
+  
+  good_tag_vals = []
+  bad_tag_vals = []
+  for tag in all_tags:
+    good_tag_vals.append(good_hist[tag])
+    bad_tag_vals.append(bad_hist[tag])
+  
+  for h in [good_hist, bad_hist]:
+    k = h.keys()
+    v = [h[key] for key in k]
+    h = {}
+    z = zip(k, v)
+    z.sort(key=lambda x: x[1], reverse=True)
+    z = z[:20]
+    z.sort(key=lambda x: x[0], reverse=False)
+    for k,v in z:
+      h[k] = v
+    ks = [x[0] for x in z]
+    vs = [x[1] for x in z]
+    X = range(len(ks))
+    pl.bar(X, vs, align='center', width=0.5)
+    pl.xticks(rotation=90)
+    pl.xticks(X, ks)
+    ymax = max(vs) + 1
+    pl.ylim(0, ymax)
+    pl.show()
+  
+  '''
   # Score the tags (todo: scale down if same photographer uses tag a lot?)
   tag_scores = {}
   for img in rated_images:
@@ -86,7 +130,7 @@ def main(folder):
   
   # Write the ratings to 'img_scores.txt'
   #with open(folder + 'img_scores.txt', 'w') as f:
-  
+  '''
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='This script analyses tag usefulness')

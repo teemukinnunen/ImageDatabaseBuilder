@@ -4,6 +4,7 @@ import os, sys, argparse
 import Image
 import shutil, json
 import StringIO, collections
+import datetime
 
 def get_image_name(url):
   return url.split('/')[-1]
@@ -67,12 +68,31 @@ def main(argv):
   
   new_york_id = 2459115
   helsinki_id = 565346
-  per_page = min(image_dl_count, 300)
   photos = []
+  '''per_page = min(image_dl_count, 300)
+  max_taken = datetime.date.today() - datetime.timedelta(days=0)
+  min_taken = datetime.date.today() - datetime.timedelta(days=10 * 365)
   for page in range(image_dl_count / per_page):
-    #page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=315532800)
-    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page)
-    photos.extend(page_photos)
+    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=min_taken, max_taken_date=max_taken)
+    photos.extend(page_photos)'''
+  months_to_dl_from = 60
+  per_page = min(image_dl_count, 100)
+  for months_back in range(months_to_dl_from):
+    out_of_photos = False
+    while not out_of_photos and len(photos) < image_dl_count:
+      max_taken = datetime.date.today() - datetime.timedelta(days=months_back * 30)
+      min_taken = max_taken - datetime.timedelta(days=30)
+      page = 0
+      photos_found = 0
+      while True:
+        page_photos = flickr.photos_search(woe_id=helsinki_id, has_geo=1, per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken)
+        if len(page_photos) == 0:
+          out_of_photos = True
+          break
+        page += 1
+        photos_found += len(page_photos)
+        photos.extend(page_photos)
+      print "Found", photos_found, "photos between", min_taken, max_taken
   print "Found", len(photos), "photos"
   urls = []
   failed_downloads = 0
@@ -91,12 +111,13 @@ def main(argv):
       gps = photo.getLocation()
       id = photo.id.encode('utf-8')
       owner = photo.owner.id.encode('utf-8')
-      datetaken = '' #photo.datetaken
-      #print datetaken
+      datetaken = photo.datetaken
       if save_images:
         save_image_and_data(image_folder, url, title, id, owner, tags, description, gps, datetaken)
-    except:
-      print "Exception while downloading photo at index {}".format(i)
+    except KeyboardInterrupt:
+      raise
+    except Exception as e:
+      print "Exception while downloading photo at index {}:".format(i), e #type(e).__name__, e.strerror
       failed_downloads += 1
     '''exif = photo.getExif()
     for tag in exif.tags:
