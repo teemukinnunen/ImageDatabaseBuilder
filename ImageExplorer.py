@@ -102,10 +102,14 @@ class ImageExplorer(Tkinter.Tk):
     filepath = self.folder + 'ratings.txt'
     with open(filepath, 'w') as f:
       json.dump(self.ratings, f)
+    rated = 0
+    for key in self.ratings:
+      if self.ratings[key] != None:
+        rated += 1
+    print "Rated images:", rated
   
   # Event when rating the image
   def rate_image(self, event):
-    print event.type
     if event.keysym == 'plus':
       self.set_current_rating(1)
     elif event.keysym == 'minus':
