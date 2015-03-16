@@ -92,10 +92,14 @@ def main(argv):
         page += 1
         photos_found += len(page_photos)
         photos.extend(page_photos)
+        if len(photos) >= image_dl_count:
+          break
       print "Found", photos_found, "photos between", min_taken, max_taken
   print "Found", len(photos), "photos"
   urls = []
   failed_downloads = 0
+  if len(photos) > image_dl_count:
+    photos = photos[:image_dl_count]
   for i in range(len(photos)):
     try:
       print "Downloading photos... {}/{}\r".format(i+1, len(photos)), 
