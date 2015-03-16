@@ -57,7 +57,43 @@ def main(folder):
       elif img.rating == -1:
         bad_hist[tag] += 1
   
-  good_tag_vals = []
+  # Create the world's greatest histogram ever
+  n = len(all_tags)
+  all_tags.sort(key=lambda tag: good_hist[tag] + bad_hist[tag], reverse=True)
+  all_tags = all_tags[:200]
+  show_tags = False
+  weight_freq = False
+  
+  fig = pl.figure()
+  good_data = [good_hist[tag] for tag in all_tags]
+  bad_data = [-bad_hist[tag] for tag in all_tags]
+  if weight_freq:
+    rated_good = 0
+    rated_bad = 0
+    for img in rated_images:
+      if img.rating == 1:
+        rated_good += 1
+      elif img.rating == -1:
+        rated_bad += 1
+    w = float(rated_good) / rated_bad
+    print w
+    bad_data = [d * w for d in bad_data]
+  ax = pl.subplot(111)
+  ax.bar(range(len(all_tags)), good_data, width=1, color='b')
+  ax.bar(range(len(all_tags)), bad_data, width=1, color='r')
+  pl.ylabel('frekvenssi')
+  pl.xlabel('avainsanan indeksi')
+  if show_tags:
+    pl.xticks(range(len(all_tags)), all_tags)
+    pl.xticks(rotation=90)
+    pl.xlabel('avainsana')
+    pl.gcf().subplots_adjust(bottom=0.45)
+  pl.ylim(min(bad_data) - 1, max(good_data) + 1) 
+  pl.show()
+  
+  
+  
+  '''good_tag_vals = []
   bad_tag_vals = []
   for tag in all_tags:
     good_tag_vals.append(good_hist[tag])
@@ -81,7 +117,7 @@ def main(folder):
     pl.xticks(X, ks)
     ymax = max(vs) + 1
     pl.ylim(0, ymax)
-    pl.show()
+    pl.show()'''
   
   '''
   # Score the tags (todo: scale down if same photographer uses tag a lot?)
