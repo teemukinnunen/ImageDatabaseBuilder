@@ -1,7 +1,7 @@
 import flickr
 import urllib, urlparse
 import os, sys, argparse
-import Image
+from PIL import Image
 import shutil, json
 import StringIO, collections
 import datetime
@@ -19,7 +19,7 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   # Make folder if it doesn't exist
   if not os.path.exists(image_folder):
     os.makedirs(image_folder)
-    
+
   # Download image
   image = download_image(url)
   name = get_image_name(url)
@@ -27,7 +27,7 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   # Save image
   image_path = image_folder + name
   image.save(image_path)
-  
+
   # Save metadata in a text file
   metadata = {}
   metadata['url'] = url
@@ -40,7 +40,7 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   metadata['datetaken'] = datetaken
   text_path = image_folder + name.split('.')[0] + '.txt'
   with open(text_path, 'w') as f:
-    json.dump(metadata, f)  
+    json.dump(metadata, f)
 
 def main(argv):
   with open('API key here.txt', 'r') as f:
@@ -50,22 +50,22 @@ def main(argv):
       flickr.API_SECRET = lines[1]
     else:
       print "Insert API_KEY and API_SECRET to 'API key here.txt'"
-  
+
   # Script parameters
   save_images = True
   image_folder = None
   image_dl_count = None
-  
+
   parser = argparse.ArgumentParser(description='This script downloads images from Flickr.')
   parser.add_argument('-f', '--folder_name', help='Save folder name', required=True)
   parser.add_argument('-a', '--photo_amount', help='Amount of images to download', required=True)
   args = parser.parse_args()
-  
+
   image_folder = './' + args.folder_name + '/'
   image_dl_count = int(args.photo_amount)
-  
+
   print "Parameters:", image_folder, image_dl_count
-  
+
   new_york_id = 2459115
   helsinki_id = 565346
   photos = []
@@ -102,14 +102,14 @@ def main(argv):
     photos = photos[:image_dl_count]
   for i in range(len(photos)):
     try:
-      print "Downloading photos... {}/{}\r".format(i+1, len(photos)), 
+      print "Downloading photos... {}/{}\r".format(i+1, len(photos)),
       photo = photos[i]
       url = photo.getMedium()
-      
+
       tags = []
       if photo.__getattr__('tags') != None:
         tags = [tag.text.encode('utf-8') for tag in photo.__getattr__('tags')]
-      
+
       title = photo.title.encode('utf-8')
       description = photo.description.encode('utf-8')
       gps = photo.getLocation()
@@ -126,12 +126,12 @@ def main(argv):
     '''exif = photo.getExif()
     for tag in exif.tags:
       print '%s: %s' % (tag.label, tag.raw)'''
-  
+
   print "Photos:", len(photos), "Successful downloads:", len(photos) - failed_downloads
   seen = set()
   uniq = [x for x in urls if x not in seen and not seen.add(x)]
   print "Duplicates: ", len(urls) - len(uniq)
-  
-  
+
+
 if __name__ == '__main__':
   main(sys.argv[1:])
