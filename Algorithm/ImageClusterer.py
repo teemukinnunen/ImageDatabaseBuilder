@@ -5,9 +5,18 @@ from os import listdir
 from os.path import isfile, join
 import json
 
+def extract_features(img):
+  pass
+
 # This is the actual clustering algorithm
 def cluster_images(image_paths, metadata):
-  img = cv2.imread(image_paths[0], cv2.IMREAD_COLOR)
+  print "Extracting visual features"
+  features = []
+  for path in image_paths:
+    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    features.append(extract_features(img))
+  print "Clustering"
+  
 
 def get_image_paths(folder):
     all_file_names = [f for f in listdir(folder) if isfile(join(folder, f))]
