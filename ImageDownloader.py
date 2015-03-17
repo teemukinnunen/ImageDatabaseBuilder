@@ -42,7 +42,7 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   with open(text_path, 'w') as f:
     json.dump(metadata, f)
 
-def main(argv):
+def main():
   with open('API key here.txt', 'r') as f:
     lines = f.read().splitlines()
     if len(lines) >= 2:
@@ -69,12 +69,6 @@ def main(argv):
   new_york_id = 2459115
   helsinki_id = 565346
   photos = []
-  '''per_page = min(image_dl_count, 300)
-  max_taken = datetime.date.today() - datetime.timedelta(days=0)
-  min_taken = datetime.date.today() - datetime.timedelta(days=10 * 365)
-  for page in range(image_dl_count / per_page):
-    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=min_taken, max_taken_date=max_taken)
-    photos.extend(page_photos)'''
   months_to_dl_from = 60
   per_page = min(image_dl_count, 100)
   for months_back in range(months_to_dl_from):
@@ -121,11 +115,8 @@ def main(argv):
     except KeyboardInterrupt:
       raise
     except Exception as e:
-      print "Exception while downloading photo at index {}:".format(i), e #type(e).__name__, e.strerror
+      print "Exception while downloading photo at index {}:".format(i), e
       failed_downloads += 1
-    '''exif = photo.getExif()
-    for tag in exif.tags:
-      print '%s: %s' % (tag.label, tag.raw)'''
 
   print "Photos:", len(photos), "Successful downloads:", len(photos) - failed_downloads
   seen = set()
@@ -134,4 +125,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-  main(sys.argv[1:])
+  main()
