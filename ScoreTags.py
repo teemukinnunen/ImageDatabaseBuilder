@@ -60,9 +60,10 @@ def main(folder):
   # Create the world's greatest histogram ever
   n = len(all_tags)
   all_tags.sort(key=lambda tag: good_hist[tag] + bad_hist[tag], reverse=True)
-  all_tags = all_tags[:200]
-  show_tags = False
-  weight_freq = False
+  all_tags = all_tags[:20]
+  show_tags = True
+  weight_freq = True
+  use_percentage = False
   
   fig = pl.figure()
   good_data = [good_hist[tag] for tag in all_tags]
@@ -78,17 +79,32 @@ def main(folder):
     w = float(rated_good) / rated_bad
     print w
     bad_data = [d * w for d in bad_data]
+  pl.title('Avainsanojen frekvenssi')
+  if weight_freq:
+    pl.title('Avainsanojen painotettu frekvenssi')
+  if use_percentage:
+    good_total = 1.0 * sum(good_hist.values())
+    bad_total = 1.0 * sum(bad_hist.values())
+    good_data = [d / good_total for d in good_data]
+    bad_data = [d / bad_total for d in bad_data]
+    pl.title('Avainsanojen suhteellinen frekvenssi')
   ax = pl.subplot(111)
   ax.bar(range(len(all_tags)), good_data, width=1, color='b')
   ax.bar(range(len(all_tags)), bad_data, width=1, color='r')
-  pl.ylabel('frekvenssi')
+  if use_percentage:
+    pl.ylabel('suhteellinen frekvenssi')
+  else:
+    pl.ylabel('frekvenssi')
   pl.xlabel('avainsanan indeksi')
   if show_tags:
     pl.xticks(range(len(all_tags)), all_tags)
     pl.xticks(rotation=90)
     pl.xlabel('avainsana')
     pl.gcf().subplots_adjust(bottom=0.45)
-  pl.ylim(min(bad_data) - 1, max(good_data) + 1) 
+  if use_percentage:
+    pl.ylim(min(bad_data) - 0.02, max(good_data) + 0.02)
+  else:
+    pl.ylim(min(bad_data) - 1, max(good_data) + 1) 
   pl.show()
   
   
