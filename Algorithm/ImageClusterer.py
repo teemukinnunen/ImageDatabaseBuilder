@@ -30,7 +30,7 @@ def image_distance(img1, img2):
 def cluster_images(images):
   #images = images[:30]
   descriptors = []
-  for image in images[:2000]:
+  for image in images[:2000]: # ota vain osa
     try:
       img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
       surf = cv2.SURF(400)
