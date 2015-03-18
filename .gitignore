@@ -3,6 +3,8 @@ Libs/
 Images/
 */*.jpg
 */*.txt
+Algorithm/vocpy-master/
+Algorithm/featuredata/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
