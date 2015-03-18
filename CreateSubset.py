@@ -1,36 +1,69 @@
 from os import listdir
 from os.path import isfile, join
 import os, sys, argparse
+import shutil
+import json
 
 def get_folder_arguments():
   parser = argparse.ArgumentParser(description='This script clusters images of same views')
-  parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
+  parser.add_argument('-i', '--input_folder', help='Input image folder name', required=True)
+  parser.add_argument('-o', '--output_folder', help='Output image folder name', required=True)
   args = parser.parse_args()
-  return (args.input_folder, args.output_folder
+  return (args.input_folder, args.output_folder)
 
-def get_image_paths(folder):
+def get_image_names(folder):
     all_file_names = [f for f in listdir(folder) if isfile(join(folder, f))]
     all_file_names = [f for f in all_file_names if f != 'ratings.txt']
     all_file_names.sort()
-    files = [folder + all_file_names[i].split('.')[0] for i in range(0, len(all_file_names), 2)]
+    files = [all_file_names[i].split('.')[0] for i in range(0, len(all_file_names), 2)]
     images = [f + '.jpg' for f in files]
     metadata = [f + '.txt' for f in files]
     return (images, metadata)
 
-def get_bb_images(image_paths, metadata_paths, latlong, w, h):
+def get_bb_images(folder, image_paths, metadata_paths, latlong, w, h):
+  imgs = []
+  mds = []
   for i in range(len(image_paths)):
-    with open(metadata_paths[i], 'r') as f
+    with open(folder + metadata_paths[i], 'r') as f:
       md = json.load(f)
-      gps = [float(md['gps'][0]), float(md['gps'][1]
+      gps = [float(md['gps'][0]), float(md['gps'][1])]
+      if abs(latlong[0] - gps[0]) < w and abs(latlong[1] - gps[1]) < h:
+        imgs.append(image_paths[i])
+        mds.append(metadata_paths[i])
+  return (imgs, mds)
+  
+def copy_images(input_folder, output_folder, img_paths, md_paths):
+  if input_folder == output_folder:
+    print "input folder can't be same as output folder!"
+    return
+  if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+  print "Copying {} photos".format(len(img_paths))
+  for i in range(len(img_paths)):
+    #print input_folder+img_paths[i], output_folder+img_paths[i]
+    shutil.copy2(input_folder + img_paths[i], output_folder + img_paths[i])
+    shutil.copy2(input_folder + md_paths[i], output_folder + md_paths[i])
+
+def meters_to_latlong_approx(mx, my):
+  return (mx / 111413.93794495543, my / 55631.4933990071)
     
 def main():
-  folder_name = get_folder_argument()
-  folder = './' + folder_name + '/'
-  (image_paths, metadata_paths) = get_image_paths(folder)
-  w = 0.005
-  h = 0.005
-  rautatietori = [24.57, 60.10]
-  subset = get_bb_images(image_paths, metadata_paths, rautatietori, w, h)
+  (input_folder, output_folder) = get_folder_arguments()
+  (image_paths, metadata_paths) = get_image_names('./' + input_folder + '/')
+  eduskuntatalo = [60.172538, 24.9333456]
+  rautatietori = [60.171267, 24.944136]
+  '''center = [0, 0]
+  d = [0, 0]
+  for i in range(2):
+    d[i] = (eduskuntatalo[i] - rautatietori[i]) / 2.0
+    center[i] = rautatietori[i] + d[i]
+  w = 1.3 * abs(d[0])
+  h = 1.3 * abs(d[1])'''
+  center = eduskuntatalo
+  (w, h) = meters_to_latlong_approx(150.0, 150.0)
+  print "w: {}, h: {}".format(w, h)
+  (subset_images, subset_metadata) = get_bb_images('./' + input_folder + '/', image_paths, metadata_paths, center, w, h)
+  copy_images('./' + input_folder + '/', './' + output_folder + '/', subset_images, subset_metadata)
   
 if __name__ == '__main__':
   main()
