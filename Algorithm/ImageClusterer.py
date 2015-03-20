@@ -30,7 +30,7 @@ def image_distance(img1, img2):
 def cluster_images(images):
   #images = images[:30]
   descriptors = []
-  for image in images[:2000]: # ota vain osa
+  for image in images[]: # ota vain osa
     try:
       img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
       surf = cv2.SURF(400)
@@ -51,7 +51,7 @@ def cluster_images(images):
   print "descriptors:", len(descriptors)
   return
   #n_clusters = len(descriptors) / 400
-  n_clusters = 1000
+  n_clusters = 10
   print "codes:", n_clusters
   mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_clusters,
       batch_size=n_clusters, n_init=3, max_iter=50,

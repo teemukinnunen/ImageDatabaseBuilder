@@ -71,11 +71,11 @@ def main():
   photos = []
   months_to_dl_from = 60
   per_page = min(image_dl_count, 100)
-  for months_back in range(months_to_dl_from):
+  for months_back in range(months_to_dl_from * 30):
     out_of_photos = False
     while not out_of_photos and len(photos) < image_dl_count:
-      max_taken = datetime.date.today() - datetime.timedelta(days=months_back * 30)
-      min_taken = max_taken - datetime.timedelta(days=30)
+      max_taken = datetime.date.today() - datetime.timedelta(days=months_back)#months_back * 30)
+      min_taken = max_taken - datetime.timedelta(days=1)#30)
       page = 0
       photos_found = 0
       while True:
@@ -85,7 +85,10 @@ def main():
           break
         page += 1
         photos_found += len(page_photos)
-        photos.extend(page_photos)
+        for photo in page_photos: # day-wise downloading changes
+          if photo not in photos:
+            photos.append(photo)
+        #photos.extend(page_photos)
         if len(photos) >= image_dl_count:
           break
       print "Found", photos_found, "photos between", min_taken, max_taken

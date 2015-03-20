@@ -1,8 +1,8 @@
 from os import listdir
 from os.path import isfile, join
 import os, sys, argparse
-import shutil
 import json
+import utilities
 
 def get_folder_arguments():
   parser = argparse.ArgumentParser(description='This script clusters images of same views')
@@ -32,18 +32,6 @@ def get_bb_images(folder, image_paths, metadata_paths, latlong, w, h):
         mds.append(metadata_paths[i])
   return (imgs, mds)
   
-def copy_images(input_folder, output_folder, img_paths, md_paths):
-  if input_folder == output_folder:
-    print "input folder can't be same as output folder!"
-    return
-  if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
-  print "Copying {} photos".format(len(img_paths))
-  for i in range(len(img_paths)):
-    #print input_folder+img_paths[i], output_folder+img_paths[i]
-    shutil.copy2(input_folder + img_paths[i], output_folder + img_paths[i])
-    shutil.copy2(input_folder + md_paths[i], output_folder + md_paths[i])
-
 def meters_to_latlong_approx(mx, my):
   return (mx / 111413.93794495543, my / 55631.4933990071)
     

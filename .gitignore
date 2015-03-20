@@ -7,6 +7,7 @@ Images/
 Algorithm/vocpy-master/
 Algorithm/featuredata/
 BACKUP/
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
