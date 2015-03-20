@@ -2,6 +2,7 @@
 Libs/
 Images/
 */*.jpg
+*/*/*.jpg
 */*.txt
 Algorithm/vocpy-master/
 Algorithm/featuredata/
