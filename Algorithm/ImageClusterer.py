@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import random
 import cv2
 import json
 from Utilities import *
@@ -6,19 +8,14 @@ from Utilities import *
 import os
 import sys
 
-'''from sklearn.cluster import MeanShift, estimate_bandwidth
-from sklearn.datasets.samples_generator import make_blobs
-import matplotlib.pyplot as plt
-from itertools import cycle'''
-
-#sys.path.append(os.path.join('vocpy-master', 'tools'))
-#import generatecodebook
-
 class Image:
-  def __init__(self, image_path, metadata_path, features):
+  image_path = None
+  metadata = None
+  features = []
+  
+  def __init__(self, image_path, metadata_path):
     self.image_path = image_path
     self.load_metadata(metadata_path)
-    self.features = features
     
   def load_metadata(self, metadata_path):
     with open(metadata_path, 'r') as f:
@@ -28,80 +25,108 @@ def image_distance(img1, img2):
   pass
 
 def cluster_images(images):
-  #images = images[:30]
+  random.shuffle(images)
+  ### Create bag of features
+  # Extract features from images
   descriptors = []
-  for image in images[]: # ota vain osa
-    try:
-      img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
-      surf = cv2.SURF(400)
-      kp, des = surf.detectAndCompute(img, None)
-    except:
-      print "fuufuu"
-      break
-    try:
-      image.features = (kp, des)
-      descriptors.extend(des)
-    except:
-      print "failed to add descriptors", len(kp)
-    #print des
-    #print '---'
+  maxd = 0
+  for image in images:
+    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
+    surf = cv2.SURF(400)
+    kp, des = surf.detectAndCompute(img, None)
+    # todo: limit descriptors?
+    descriptors.extend(des)
     
-  # Cluster descriptors for codebook  (borrowed from codebook.py)
+  #todo PCA
+  random.shuffle(descriptors)
+  
+  # Cluster descriptors for codebook
   from sklearn.cluster import MiniBatchKMeans
-  print "descriptors:", len(descriptors)
-  return
-  #n_clusters = len(descriptors) / 400
-  n_clusters = 10
-  print "codes:", n_clusters
-  mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_clusters,
-      batch_size=n_clusters, n_init=3, max_iter=50,
-      max_no_improvement=3, verbose=0, compute_labels=False)
+  codebook_size = 100
+  print "Creating codebook of size {} from {} descriptors".format(codebook_size, len(descriptors))
+  mbk = MiniBatchKMeans(n_clusters=codebook_size, init='k-means++', n_init=3, max_iter=50)
+  '''mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_clusters,
+      batch_size=, n_init=3, max_iter=50,
+      max_no_improvement=3, verbose=0, compute_labels=False)'''
   mbk.fit(descriptors)
   codebook = mbk.cluster_centers_
-  print "codebook:", codebook
-  
-  '''visual_distances = np.zeros((len(images), len(images)))
-  for i in range(len(images)):
-    for j in range(i+1, len(images)):
-      d = 0.0
-      visual_distances[i, j] = d'''
-  
-'''# This is the actual clustering algorithm
-def cluster_images_test(images):
-  print "Clustering images"
-  centers = [[1,1], [-1,-1], [1,-1]]
-  
-  X = [[0.0,0.0],[0.2,0.1],[1.0,1.0],[-2.0,-0.5],[-1.0,-2.0]]
-  X = []
-  for img in images:
-    gps = img.metadata['gps']
-    X.append([float(gps[0]), float(gps[1])])
-  X = np.array(X)
-  print X
-  
-  #X, _ = make_blobs(n_samples=10000, centers=centers, cluster_std=0.6)
-  print X
-  #bandwidth = estimate_bandwidth(X, quantile=0.2, n_samples=500)
-  #print bandwidth
-  bandwidth = 0.5
-  ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
-  ms.fit(X)
-  labels = ms.labels_
-  cluster_centers = ms.cluster_centers_
-  labels_unique = np.unique(labels)
-  n_clusters_ = len(labels_unique)
-  print "number of estimated clusters:", n_clusters_
-  
-  plt.figure(1)
-  plt.clf()
-  colors = cycle('bgrcmyk')
-  for k, col in zip(range(n_clusters_), colors):
-    my_members = labels==k
-    cluster_center = cluster_centers[k]
-    plt.plot(X[my_members,0], X[my_members,1], col+'.')
-    plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor=col, markeredgecolor='k', markersize=14)
-  plt.show()'''
-  
+  print "Calculating visual words for images"
+  def eucl_dist(a, b):
+    if len(a) != len(b):
+      raise Exception("Vectors are different length: {} and {}".format(len(a), len(b)))
+    d = 0
+    for i in range(len(a)):
+      d += (a[i] - b[i])**2
+    return math.sqrt(d)
+  for image in images:
+    image.features = [0] * len(codebook)
+    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
+    surf = cv2.SURF(400)
+    kp, des = surf.detectAndCompute(img, None)
+    for d in des:
+      d = np.array(d)
+      min_index = 0
+      min_dist = eucl_dist(codebook[0, :], d)
+      for i in range(1, codebook.shape[0]):
+        dist = eucl_dist(codebook[i, :], d)
+        if dist < min_dist:
+          min_index = i
+          min_dist = dist
+      image.features[min_index] += 1
+  print images[5].features
+    
+def test(images):
+  n_images = len(images)
+  n_codes = 800
+  # Extract features from images
+  features = []
+  print "Extracting image features for {} images...".format(n_images)
+  for image in images:
+    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
+    surf = cv2.SURF(400)
+    kp, des = surf.detectAndCompute(img, None)
+    image.des = [np.array(d) for d in des]
+    features.extend(des[:1000])
+  # Create the codebook
+  print "Creating codebook of size {} from {} features...".format(n_codes, len(features))
+  random.shuffle(features)
+  features = np.array(features)
+  codebook = features[:n_codes]
+  for image in images:
+    hist = np.zeros(n_codes)
+    for des in image.des:
+      min_index = 0
+      min_dist = np.linalg.norm(codebook[0] - des)
+      for i in range(1, n_codes):
+        dist = np.linalg.norm(codebook[i] - des)
+        if dist < min_dist:
+          min_index = i
+          min_dist = dist
+      threshold = 1.0 #
+      if min_dist < threshold:
+        hist[min_index] += 1.0
+    image.hist = hist / np.linalg.norm(hist, 2)      # todo mieti onko jarkeva
+  # Image distances
+  print "Computing image distances..."
+  distances = np.zeros((n_images, n_images))
+  for i in range(n_images):
+    img1 = images[i]
+    for j in range(i+1, n_images):
+      img2 = images[j]
+      d = np.linalg.norm(img1.hist - img2.hist)
+      distances[i,j] = d
+      distances[j,i] = d
+  print distances
+  print "Clustering images..."
+  '''max_dist_ij = np.unravel_index(distances.argmax(), distances.shape)
+  distances += 10000.0 * np.identity(n_images)
+  min_dist_ij = np.unravel_index(distances.argmin(), distances.shape)
+  print images[max_dist_ij[0]].image_path, images[max_dist_ij[1]].image_path
+  print images[min_dist_ij[0]].image_path, images[min_dist_ij[1]].image_path'''
+  from sklearn.cluster import DBSCAN
+  dbs = DBSCAN(eps=0.4, metric='precomputed', min_samples=2)
+  dbs.fit(distances)
+  print dbs.labels_
 
 def main():
   folder = get_folder_argument()
@@ -114,11 +139,11 @@ def main():
   (image_paths, metadata_paths) = get_image_paths(base_folder)
   images = []
   for i in range(len(image_paths)):
-    features = ['todo']
-    images.append(Image(image_paths[i], metadata_paths[i], features))
+    images.append(Image(image_paths[i], metadata_paths[i]))
   
   # Start the main algorithm
-  cluster_images(images)
+  test(images)
+  #cluster_images(images)
 
 if __name__ == '__main__':
   main()
