@@ -3,7 +3,8 @@ import math
 import random
 import cv2
 import json
-from Utilities import *
+
+import Utilities
 
 import os
 import sys
@@ -12,6 +13,8 @@ class Image:
   image_path = None
   metadata = None
   features = []
+  tags = []
+  gps = []
   
   def __init__(self, image_path, metadata_path):
     self.image_path = image_path
@@ -20,6 +23,9 @@ class Image:
   def load_metadata(self, metadata_path):
     with open(metadata_path, 'r') as f:
       self.metadata = json.load(f)
+    self.tags = self.metadata['tags']
+    gps = self.metadata['gps']
+    self.gps = [float(gps[0]), float(gps[1])]
 
 def image_distance(img1, img2):
   pass
@@ -75,9 +81,9 @@ def cluster_images(images):
       image.features[min_index] += 1
   print images[5].features
     
-def test(images):
+def test(images, folder):
   n_images = len(images)
-  n_codes = 800
+  n_codes = 500
   # Extract features from images
   features = []
   print "Extracting image features for {} images...".format(n_images)
@@ -102,48 +108,126 @@ def test(images):
         if dist < min_dist:
           min_index = i
           min_dist = dist
-      threshold = 1.0 #
+      threshold = 100000.0 #
       if min_dist < threshold:
         hist[min_index] += 1.0
+      else:
+        print "threshold miss"
     image.hist = hist / np.linalg.norm(hist, 2)      # todo mieti onko jarkeva
+    #print image.hist
   # Image distances
-  print "Computing image distances..."
-  distances = np.zeros((n_images, n_images))
-  for i in range(n_images):
-    img1 = images[i]
-    for j in range(i+1, n_images):
-      img2 = images[j]
-      d = np.linalg.norm(img1.hist - img2.hist)
-      distances[i,j] = d
-      distances[j,i] = d
-  print distances
   print "Clustering images..."
-  '''max_dist_ij = np.unravel_index(distances.argmax(), distances.shape)
-  distances += 10000.0 * np.identity(n_images)
-  min_dist_ij = np.unravel_index(distances.argmin(), distances.shape)
-  print images[max_dist_ij[0]].image_path, images[max_dist_ij[1]].image_path
-  print images[min_dist_ij[0]].image_path, images[min_dist_ij[1]].image_path'''
-  from sklearn.cluster import DBSCAN
-  dbs = DBSCAN(eps=0.4, metric='precomputed', min_samples=2)
-  dbs.fit(distances)
-  print dbs.labels_
+  feature_array = np.array([image.hist for image in images])
+  
+  from sklearn.cluster import KMeans
+  ms = KMeans(n_clusters = n_images / 5)
+  labels = ms.fit_predict(feature_array)
+  #from sklearn.cluster import MeanShift
+  #ms = MeanShift()
+  #labels = ms.fit_predict(feature_array)
+  clusters = {}
+  for l in np.unique(labels):
+    clusters[l] = []
+  for i in range(len(labels)):
+    clusters[labels[i]].append(i)
+  for c in clusters:
+    print "Images in cluster:"
+    for index in clusters[c]:
+      image = images[index]
+      print image.image_path
+  # Save clusters for easy viewing
+  base_output_folder = './Clusters/' + folder + '/'
+  print "Saving clusters to {}".format(base_output_folder)
+  for c in clusters:
+    input_folder = Utilities.get_folder(images[clusters[c][0]].image_path)
+    output_folder = base_output_folder + '{}/'.format(c)
+    img_paths = []
+    md_paths = []
+    for index in clusters[c]:
+      image = images[index]
+      filename = Utilities.get_filename(image.image_path).split('.')[0] # get rid of folder and extension
+      img_paths.append(filename + '.jpg')
+      md_paths.append(filename + '.txt')
+      print filename
+    print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
+    Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
+  
+# Not clustering, just finding "paths" through distance
+def find_views(images, folder):
+  pass
+
+  
+def cluster_by_tags_and_gps(images, folder):
+  # Shuffle images
+  n_images = len(images)
+  print "n_images:", n_images
+  random.shuffle(images)
+  
+  # Create vocabulary
+  vocabulary = []
+  tags = []
+  for image in images:
+    for tag in image.metadata['tags']:
+      if tag not in vocabulary:
+        vocabulary.append(tag)
+    tags.append(' '.join(image.tags))
+    
+  # todo: make vocabulary smaller here
+  
+  # Create TF-IDF features from each image's tags
+  from sklearn.feature_extraction.text import TfidfVectorizer
+  tfidf_vectorizer = TfidfVectorizer()
+  tfidf_matrix = tfidf_vectorizer.fit_transform(tags)
+  print "tfidf matrix shape:", tfidf_matrix.shape
+  print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tfidf_matrix.shape[1])
+  
+  # Calculate cosine similarity between images using tfidf features
+  from sklearn.metrics.pairwise import cosine_similarity
+  D_tags = cosine_similarity(tfidf_matrix)
+  
+  # Calculate gps differences
+  #D_gps = 
+  
+  # gps clustering (just testing)
+  '''X_gps = np.array([image.gps for image in images])
+  from sklearn.cluster import KMeans
+  km = KMeans(n_clusters = n_images/20)
+  labels = km.fit_predict(X_gps)
+  
+  # Plot clusters
+  import matplotlib.pyplot as plt
+  plt.figure()
+  colors = np.array([x for x in 'bgrcmykbgrcmykbgrcmykbgrcmyk'*100])
+  colors = np.hstack([colors] * 20)
+  plt.scatter(X_gps[:,0], X_gps[:,1], color=colors[labels].tolist())
+  plt.show()'''
+  
+
+def get_folder_argument():
+  parser = argparse.ArgumentParser(description='This script clusters images of same views')
+  parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
+  args = parser.parse_args()
+  return args.folder_name
+
 
 def main():
-  folder = get_folder_argument()
+  folder = Utilities.get_folder_argument()
   base_folder = '../' + folder + '/'
   
   # Load features
-  all_features = load_features(base_folder)
+  #all_features = load_features(base_folder)
   
   # Read metadata from files
-  (image_paths, metadata_paths) = get_image_paths(base_folder)
+  (image_paths, metadata_paths) = Utilities.get_image_paths(base_folder)
   images = []
   for i in range(len(image_paths)):
     images.append(Image(image_paths[i], metadata_paths[i]))
   
   # Start the main algorithm
-  test(images)
+  #test(images, folder)
   #cluster_images(images)
+  #find_views(images, folder)
+  cluster_by_tags_and_gps(images, folder)
 
 if __name__ == '__main__':
   main()

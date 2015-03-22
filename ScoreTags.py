@@ -163,6 +163,8 @@ def main(training_folder, classify_folder, norm, save_subsets):
   # todo kokeile tf-idf luokitinta tms
   
   # Classify ALL images, using ALL rated images for training (todo, use ratings of subset or whole set?)
+  if classify_folder == None:
+    return
   all_image_files = get_images_in_folder('./' + classify_folder + '/')
   all_images = [] # all images in the classify folder except ones also in subset
   for img in all_image_files:
@@ -182,14 +184,7 @@ def main(training_folder, classify_folder, norm, save_subsets):
   classifier.fit(X_training, Y_training)
   all_estimates = classifier.predict(X_classify)
   if save_subsets:
-    def get_filename(path): # probably doesn't work on other than Windows
-      if '/' not in path:
-        return path
-      else:
-        return path.split('/')[-1]
-    def get_folder(path):
-      return path[:path.rfind('/')+1]
-    copy_from_folder = get_folder(all_images[0].filename)
+    copy_from_folder = utilities.get_folder(all_images[0].filename)
     copy_to_base_folder = './' + args.training_images + '+' + args.classify_images + '/'
     print copy_from_folder, copy_to_base_folder
     good_img_paths = []
@@ -197,7 +192,7 @@ def main(training_folder, classify_folder, norm, save_subsets):
     bad_img_paths = []
     bad_md_paths = []
     for i in range(len(all_estimates)):
-      filename = get_filename(all_images[i].filename)
+      filename = utilities.get_filename(all_images[i].filename)
       if all_estimates[i] == 1: # image classified as "good"
         good_img_paths.append(filename + '.jpg')
         good_md_paths.append(filename + '.txt')
@@ -210,11 +205,12 @@ def main(training_folder, classify_folder, norm, save_subsets):
   # Make histogram of most popular tags in good/bad images
   
   
+  
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='This script analyses tag usefulness')
   parser.add_argument('-f1', '--training_images', help='Folder name of training (rated) images', required=True)
-  parser.add_argument('-f', '--classify_images', help='Folder name of images to classify', required=True)
+  parser.add_argument('-f', '--classify_images', help='Folder name of images to classify', required=False, default=None)
   parser.add_argument('-n', '--norm', help='Normalization method (0, L1, L2)', required=True)
   parser.add_argument('-s', '--save_subsets', action='store_true', help='Save good and bad images?', default=False)
   args = parser.parse_args()
