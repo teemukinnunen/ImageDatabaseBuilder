@@ -163,7 +163,84 @@ def cluster_by_tags_and_gps(images, folder):
   print "n_images:", n_images
   random.shuffle(images)
   
-  # Create vocabulary
+  # Create visual codebook
+  n_descriptors = 100
+  n_codebook = 10
+  n_maxfeatures = 1000
+  n_images = len(images)
+  descriptors = []
+  surf = cv2.SURF(400)
+  failed_images = 0
+  print "Extract descriptors from images"
+  try:
+    for image, i in zip(images, range(n_images)):
+        img = cv2.imread(image.image_path)
+        kp, des = surf.detectAndCompute(img, None)
+        if des == None:
+          failed_images += 1
+          continue
+        des = des[:n_maxfeatures]
+        descriptors.extend(des)
+        #image.des = des
+  except KeyboardInterrupt as e:
+    raise e
+  except:
+    "Failed at image {}/{}".format(i+1, n_images)
+      
+  
+  random.shuffle(descriptors)
+  if n_descriptors != None:
+    descriptors = descriptors[:n_descriptors]
+  
+  print "Clustering {} descriptors into codebook of size {}".format(len(descriptors), n_codebook)
+  from sklearn.cluster import MiniBatchKMeans
+  mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_codebook, n_init=3, max_iter=50, max_no_improvement=3, verbose=0, compute_labels=False) # batch size?
+  mbk.fit(descriptors)
+  codebook = mbk.cluster_centers_
+  
+  import scipy
+  import scipy.cluster.vq
+  
+  def generate_histogram(codebook, features):  # from vocpy library
+        [N, d] = codebook.shape
+        if features.size <= 1:
+            return np.zeros((N, 0))
+
+        [hits, d] = scipy.cluster.vq.vq(features, codebook)
+        [y, x] = np.histogram(hits, bins=range(0, N + 1))
+        return y
+  
+  print "Generating feature histograms"
+  visual_features = []
+  for image in images:
+    img = cv2.imread(image.image_path)
+    _, des = surf.detectAndCompute(img, None)
+    if des != None:
+      visual_hist = generate_histogram(codebook, des)#image.des)
+    else:
+      visual_hist = [math.sqrt(1.0 / n_codebook)] * n_codebook # flat histogram
+    visual_features.append(visual_hist)
+  from sklearn.feature_extraction.text import TfidfTransformer
+  visual_tfidf = TfidfTransformer(norm=u'l2', use_idf=True, smooth_idf=True, sublinear_tf=False)
+  visual_features = visual_tfidf.fit_transform(visual_features)
+  #for vfs, image in zip(visual_features, images):
+  #  image.vfs = vfs
+  from sklearn.metrics.pairwise import cosine_similarity
+  D_visual = [[0.5]*n_images]*n_images#cosine_similarity(visual_features)
+    
+  # FLANN matching
+  '''FLANN_INDEX_KDTREE = 0
+  index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+  search_params = dict(checks=50)
+  flann = cv2.FlannBasedMatcher(index_params, search_params)
+  matches = flann.knnMatch(descriptors[0], descriptors[1], k=2)'''
+  
+  #return # don't to other stuff yet
+  
+  # todo find time-specific tags
+  
+  # Create tag vocabulary
+  print "Creating tag vocabulary"
   vocabulary = []
   tags = []
   for image in images:
@@ -175,6 +252,7 @@ def cluster_by_tags_and_gps(images, folder):
   # todo: make vocabulary smaller here
   
   # Create TF-IDF features from each image's tags
+  print "Computing tf-idf tag features for images"
   from sklearn.feature_extraction.text import TfidfVectorizer
   tfidf_vectorizer = TfidfVectorizer()
   tfidf_matrix = tfidf_vectorizer.fit_transform(tags)
@@ -182,25 +260,37 @@ def cluster_by_tags_and_gps(images, folder):
   print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tfidf_matrix.shape[1])
   
   # Calculate cosine similarity between images using tfidf features
-  from sklearn.metrics.pairwise import cosine_similarity
-  D_tags = cosine_similarity(tfidf_matrix)
+  D_tags = [[0.5]*n_images]*n_images#cosine_similarity(tfidf_matrix)
   
-  # Calculate gps differences
-  #D_gps = 
+  D_tot = np.zeros((n_images, n_images))
+  for i in range(n_images):
+    for j in range(i, n_images):
+      d = D_visual[i, j] * D_tags[i, j]
+      D_tot[i, j] = d
+      #D_tot[j, i] = d
+  min_ij = (1, 0)
+  max_ij = (1, 0)
+  min_d = D_tot[1, 0]
+  max_d = D_tot[1, 0]
+  print D_visual
+  print "----"
+  print D_tags
+  for i in range(n_images):
+    for j in range(i, n_images):
+      if i == j:
+        continue
+      d = D_tot[i, j]
+      if d < min_d:
+        min_d = d
+        min_ij = (i, j)
+      elif d > max_d:
+        max_d = d
+        max_ij = (i, j)
+  print "Min:", min_ij, min_d
+  print "Max:", max_ij, max_d
   
-  # gps clustering (just testing)
-  '''X_gps = np.array([image.gps for image in images])
-  from sklearn.cluster import KMeans
-  km = KMeans(n_clusters = n_images/20)
-  labels = km.fit_predict(X_gps)
-  
-  # Plot clusters
-  import matplotlib.pyplot as plt
-  plt.figure()
-  colors = np.array([x for x in 'bgrcmykbgrcmykbgrcmykbgrcmyk'*100])
-  colors = np.hstack([colors] * 20)
-  plt.scatter(X_gps[:,0], X_gps[:,1], color=colors[labels].tolist())
-  plt.show()'''
+  import code
+  code.interact(local=locals())
   
 
 def get_folder_argument():

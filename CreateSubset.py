@@ -40,13 +40,6 @@ def main():
   (image_paths, metadata_paths) = get_image_names('./' + input_folder + '/')
   eduskuntatalo = [60.172538, 24.9333456]
   rautatietori = [60.171267, 24.944136]
-  '''center = [0, 0]
-  d = [0, 0]
-  for i in range(2):
-    d[i] = (eduskuntatalo[i] - rautatietori[i]) / 2.0
-    center[i] = rautatietori[i] + d[i]
-  w = 1.3 * abs(d[0])
-  h = 1.3 * abs(d[1])'''
   center = eduskuntatalo
   (w, h) = meters_to_latlong_approx(150.0, 150.0)
   print "w: {}, h: {}".format(w, h)
