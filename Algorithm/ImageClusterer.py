@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import random
+import code
 import cv2
 import json
 
@@ -32,60 +33,6 @@ class Image:
     from datetime import datetime
     self.date = parser.parse(date_string)
 
-def image_distance(img1, img2):
-  pass
-
-def cluster_images(images):
-  random.shuffle(images)
-  ### Create bag of features
-  # Extract features from images
-  descriptors = []
-  maxd = 0
-  for image in images:
-    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
-    surf = cv2.SURF(400)
-    kp, des = surf.detectAndCompute(img, None)
-    # todo: limit descriptors?
-    descriptors.extend(des)
-    
-  #todo PCA
-  random.shuffle(descriptors)
-  
-  # Cluster descriptors for codebook
-  from sklearn.cluster import MiniBatchKMeans
-  codebook_size = 100
-  print "Creating codebook of size {} from {} descriptors".format(codebook_size, len(descriptors))
-  mbk = MiniBatchKMeans(n_clusters=codebook_size, init='k-means++', n_init=3, max_iter=50)
-  '''mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_clusters,
-      batch_size=, n_init=3, max_iter=50,
-      max_no_improvement=3, verbose=0, compute_labels=False)'''
-  mbk.fit(descriptors)
-  codebook = mbk.cluster_centers_
-  print "Calculating visual words for images"
-  def eucl_dist(a, b):
-    if len(a) != len(b):
-      raise Exception("Vectors are different length: {} and {}".format(len(a), len(b)))
-    d = 0
-    for i in range(len(a)):
-      d += (a[i] - b[i])**2
-    return math.sqrt(d)
-  for image in images:
-    image.features = [0] * len(codebook)
-    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
-    surf = cv2.SURF(400)
-    kp, des = surf.detectAndCompute(img, None)
-    for d in des:
-      d = np.array(d)
-      min_index = 0
-      min_dist = eucl_dist(codebook[0, :], d)
-      for i in range(1, codebook.shape[0]):
-        dist = eucl_dist(codebook[i, :], d)
-        if dist < min_dist:
-          min_index = i
-          min_dist = dist
-      image.features[min_index] += 1
-  print images[5].features
-    
 def test(images, folder):
   n_images = len(images)
   n_codes = 500
@@ -157,28 +104,13 @@ def test(images, folder):
     print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
     Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
   
-# Not clustering, just finding "paths" through distance
-def find_views(images, folder):
-  pass
-
-  
-def cluster_by_tags_and_gps(images, folder):
-  # Shuffle images
-  n_images = len(images)
-  print "n_images:", n_images
-  random.shuffle(images)
-  
-  # Create visual codebook
-  n_descriptors = 100
-  n_codebook = 10
-  n_maxfeatures = 1000
-  n_images = len(images)
+def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
   descriptors = []
   surf = cv2.SURF(400)
   failed_images = 0
-  print "Extract descriptors from images"
+  print "Extracting descriptors from images"
   try:
-    for image, i in zip(images, range(n_images)):
+    for image, i in zip(images, range(len(images))):
         img = cv2.imread(image.image_path)
         kp, des = surf.detectAndCompute(img, None)
         if des == None:
@@ -190,12 +122,11 @@ def cluster_by_tags_and_gps(images, folder):
   except KeyboardInterrupt as e:
     raise e
   except:
-    "Failed at image {}/{}".format(i+1, n_images)
-      
+    "Failed at image {}/{}".format(i+1, len(images))
   
   random.shuffle(descriptors)
-  if n_descriptors != None:
-    descriptors = descriptors[:n_descriptors]
+  if n_maxdescriptors != None:
+    descriptors = descriptors[:n_maxdescriptors]
   
   print "Clustering {} descriptors into codebook of size {}".format(len(descriptors), n_codebook)
   from sklearn.cluster import MiniBatchKMeans
@@ -203,6 +134,10 @@ def cluster_by_tags_and_gps(images, folder):
   mbk.fit(descriptors)
   codebook = mbk.cluster_centers_
   
+  return codebook
+
+# Generates tfidf-weighted BoW vectors (histograms) for images
+def generate_histograms(images, codebook):
   import scipy
   import scipy.cluster.vq
   
@@ -217,6 +152,7 @@ def cluster_by_tags_and_gps(images, folder):
   
   print "Generating feature histograms"
   visual_features = []
+  surf = cv2.SURF(400)
   for image in images:
     img = cv2.imread(image.image_path)
     _, des = surf.detectAndCompute(img, None)
@@ -228,31 +164,11 @@ def cluster_by_tags_and_gps(images, folder):
   from sklearn.feature_extraction.text import TfidfTransformer
   visual_tfidf = TfidfTransformer(norm=u'l2', use_idf=True, smooth_idf=True, sublinear_tf=False)
   visual_features = visual_tfidf.fit_transform(visual_features)
-  #for vfs, image in zip(visual_features, images):
-  #  image.vfs = vfs
-  from sklearn.metrics.pairwise import cosine_similarity
-  D_visual = [[0.5]*n_images]*n_images#cosine_similarity(visual_features)
+  return visual_features
   
-  # FLANN matching
-  '''FLANN_INDEX_KDTREE = 0
-  index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-  search_params = dict(checks=50)
-  flann = cv2.FlannBasedMatcher(index_params, search_params)
-  matches = flann.knnMatch(descriptors[0], descriptors[1], k=2)'''
-  
-  # Create tag vocabulary
-  print "Creating tag vocabulary"
-  vocabulary = []
-  tags = []
-  for image in images:
-    #for tag in image.metadata['tags']:
-    for tag in image.tags:
-      if tag not in vocabulary:
-        vocabulary.append(tag)
-    tags.append(' '.join(image.tags))
-    
-  # Find time-specific tags
-  '''hourly_tag_hists = [[0] * len(vocabulary)] * 24
+def find_time_correlated_tags(images):
+  # todo: this should work so that it is done before vocabulary thing
+  hourly_tag_hists = [[0] * len(vocabulary)] * 24
   monthly_tag_hists = [[0] * len(vocabulary)] * 12
   for image in images:
     hour = image.date.hour
@@ -272,26 +188,18 @@ def cluster_by_tags_and_gps(images, folder):
     code.interact(local=locals())
     for j in range(hourly_tfidf.shape[0]):
       if hourly_tfidf[i, j] == hourly_max:
-        print "max:", vocabulary[j]'''
+        print "max:", vocabulary[j]
   
-  # Create TF-IDF features from each image's tags
-  print "Computing tf-idf tag features for images"
-  from sklearn.feature_extraction.text import TfidfVectorizer
-  tfidf_vectorizer = TfidfVectorizer()
-  tfidf_matrix = tfidf_vectorizer.fit_transform(tags)
-  print "tfidf matrix shape:", tfidf_matrix.shape
-  print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tfidf_matrix.shape[1])
-  
-  # Calculate cosine similarity between images using tfidf features
-  D_tags = [[0.5]*n_images]*n_images#cosine_similarity(tfidf_matrix)
-  
-  return # temp
+# Not sure if this can be used
+def create_distance_matrix(visual_tfidf, tags_tfidf):
+  D_visual = cosine_similarity(visual_tfidf)
+  D_tags = cosine_similarity(tags_tfidf)
   D_tot = np.zeros((n_images, n_images))
   for i in range(n_images):
     for j in range(i, n_images):
       d = D_visual[i, j] * D_tags[i, j]
       D_tot[i, j] = d
-      #D_tot[j, i] = d
+      D_tot[j, i] = d
   min_ij = (1, 0)
   max_ij = (1, 0)
   min_d = D_tot[1, 0]
@@ -312,9 +220,77 @@ def cluster_by_tags_and_gps(images, folder):
         max_ij = (i, j)
   print "Min:", min_ij, min_d
   print "Max:", max_ij, max_d
+  return D_tot
   
-  import code
+# Combine visual and tag features
+def combine_features(visual_tfidf, tag_tfidf):
+  import scipy.sparse
+  from sklearn.preprocessing import normalize
+  print visual_tfidf.shape
+  print tag_tfidf.shape
+  features = scipy.sparse.hstack((visual_tfidf, tag_tfidf))
+  features = normalize(features, axis=1, norm='l2')
+  
   code.interact(local=locals())
+  return features
+
+# This function searches for clusters
+def find_view_clusters(features):
+  from sklearn.cluster import MeanShift
+  ms = MeanShift()
+  #code.interact(local=locals())
+  features = features.toarray()
+  labels = ms.fit_predict(features)
+  print "Labels:", labels
+  print "Cluster centers:", ms.cluster_centers_
+  #code.interact(local=locals())
+  
+def cluster_by_tags_and_gps(images, folder):
+  images = images[:1000]
+  # Shuffle images
+  n_images = len(images)
+  print "n_images:", n_images
+  random.shuffle(images)
+  
+  # Create visual codebook
+  n_maxdescriptors = None
+  n_codebook = 5000
+  n_maxfeatures = 1000
+  n_images = len(images)
+  print "Creating visual codebook"
+  codebook = create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors)
+  
+  from sklearn.metrics.pairwise import cosine_similarity
+  visual_tfidf = generate_histograms(images, codebook)
+    
+  # Create tag vocabulary
+  print "Creating tag vocabulary"
+  vocabulary = []
+  tags = []
+  for image in images:
+    #for tag in image.metadata['tags']:
+    for tag in image.tags:
+      if tag not in vocabulary:
+        vocabulary.append(tag)
+    tags.append(' '.join(image.tags))
+    
+  # Find time-specific tags
+  #time_tags = find_time_correlated_tags(images)
+  
+  # Create TF-IDF features from each image's tags
+  print "Computing tf-idf tag features for images"
+  from sklearn.feature_extraction.text import TfidfVectorizer
+  tfidf_vectorizer = TfidfVectorizer()
+  tags_tfidf = tfidf_vectorizer.fit_transform(tags)
+  print "tfidf matrix shape:", tags_tfidf.shape
+  print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tags_tfidf.shape[1])
+  
+  # Combine visual and tag features
+  print "Combining features"
+  features = combine_features(visual_tfidf, tags_tfidf)
+  
+  print "Clustering views"
+  find_view_clusters(features)  
   
 
 def get_folder_argument():
@@ -322,7 +298,6 @@ def get_folder_argument():
   parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
   args = parser.parse_args()
   return args.folder_name
-
 
 def main():
   folder = Utilities.get_folder_argument()
