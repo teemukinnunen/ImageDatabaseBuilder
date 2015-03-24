@@ -15,6 +15,7 @@ class Image:
   features = []
   tags = []
   gps = []
+  date = None
   
   def __init__(self, image_path, metadata_path):
     self.image_path = image_path
@@ -26,6 +27,10 @@ class Image:
     self.tags = self.metadata['tags']
     gps = self.metadata['gps']
     self.gps = [float(gps[0]), float(gps[1])]
+    date_string = self.metadata['datetaken']
+    from dateutil import parser
+    from datetime import datetime
+    self.date = parser.parse(date_string)
 
 def image_distance(img1, img2):
   pass
@@ -227,7 +232,7 @@ def cluster_by_tags_and_gps(images, folder):
   #  image.vfs = vfs
   from sklearn.metrics.pairwise import cosine_similarity
   D_visual = [[0.5]*n_images]*n_images#cosine_similarity(visual_features)
-    
+  
   # FLANN matching
   '''FLANN_INDEX_KDTREE = 0
   index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
@@ -235,21 +240,39 @@ def cluster_by_tags_and_gps(images, folder):
   flann = cv2.FlannBasedMatcher(index_params, search_params)
   matches = flann.knnMatch(descriptors[0], descriptors[1], k=2)'''
   
-  #return # don't to other stuff yet
-  
-  # todo find time-specific tags
-  
   # Create tag vocabulary
   print "Creating tag vocabulary"
   vocabulary = []
   tags = []
   for image in images:
-    for tag in image.metadata['tags']:
+    #for tag in image.metadata['tags']:
+    for tag in image.tags:
       if tag not in vocabulary:
         vocabulary.append(tag)
     tags.append(' '.join(image.tags))
     
-  # todo: make vocabulary smaller here
+  # Find time-specific tags
+  '''hourly_tag_hists = [[0] * len(vocabulary)] * 24
+  monthly_tag_hists = [[0] * len(vocabulary)] * 12
+  for image in images:
+    hour = image.date.hour
+    month = image.date.month - 1  # 0-indexing
+    for tag, i in zip(vocabulary, range(len(vocabulary))):
+      if tag in image.tags:
+        monthly_tag_hists[month][i] += 1
+        hourly_tag_hists[hour][i] += 1
+  from sklearn.feature_extraction.text import TfidfTransformer
+  hourly_tag_hists = np.array(hourly_tag_hists).transpose()
+  monthly_tag_hists = np.array(monthly_tag_hists).transpose()
+  hourly_tfidf = TfidfTransformer().fit_transform(hourly_tag_hists)
+  monthly_tfidf = TfidfTransformer().fit_transform(monthly_tag_hists)
+  for i in range(24):
+    hourly_max = max(hourly_tfidf[i])
+    import code
+    code.interact(local=locals())
+    for j in range(hourly_tfidf.shape[0]):
+      if hourly_tfidf[i, j] == hourly_max:
+        print "max:", vocabulary[j]'''
   
   # Create TF-IDF features from each image's tags
   print "Computing tf-idf tag features for images"
@@ -262,6 +285,7 @@ def cluster_by_tags_and_gps(images, folder):
   # Calculate cosine similarity between images using tfidf features
   D_tags = [[0.5]*n_images]*n_images#cosine_similarity(tfidf_matrix)
   
+  return # temp
   D_tot = np.zeros((n_images, n_images))
   for i in range(n_images):
     for j in range(i, n_images):
