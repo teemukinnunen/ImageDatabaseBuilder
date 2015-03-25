@@ -6,6 +6,10 @@ import shutil
 import os
 import numpy as np
 
+### Plotting ###
+def plot_image_similarities(image, nearest, distances):
+  pass
+
 ### Feature saving/loading ###
 def save_features(name, features):
   features = features.toarray()
@@ -56,6 +60,7 @@ def copy_images(input_folder, output_folder, img_paths, md_paths):
   if input_folder == output_folder:
     print "input folder can't be same as output folder!"
     return
+  shutil.rmtree(output_folder)
   if not os.path.exists(output_folder):
     os.makedirs(output_folder)
   #print "Copying {} photos".format(len(img_paths))

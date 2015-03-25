@@ -4,6 +4,8 @@ import random
 import code
 import cv2
 import json
+import sklearn
+from sklearn.metrics.pairwise import cosine_similarity
 
 import Utilities
 
@@ -199,16 +201,15 @@ def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
   print "Computing similarity"
   for i in range(n):
     for j in range(i, n):
-      s_vis = visual_tfidf[i].dot(visual_tfidf[j])
+      s_vis = visual_tfidf[i].dot(visual_tfidf[j])  # todo euclidean or not?
       s_tag = tags_tfidf[i].dot(tags_tfidf[j])
       s_gps = 0.0
       sim = s_vis + s_tag + s_gps
       S[i, j] = sim
       S[j, i] = sim
     
-  
   return S
-  
+
 def cluster_similarity(S):
   pass
   
@@ -270,6 +271,22 @@ def save_clusters(images, labels, folder):
     #print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
     Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
 
+# Plots nearest neighbors visually and then by tags and then together
+def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, gpses):
+  # Plot by similarity of visual features
+  similarities = cosine_similarity(visual_tfidf)
+  image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
+  nearest_pairs = sorted(image_similarities, key=lambda p: p[0])
+  nearest_pairs = nearest_pairs[:n_nearest]
+  nearest_indices = [pair[1] for pair in nearest_pairs]
+  nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
+  nearest_sims = [pair[0] for pair in nearest_pairs]
+  Utilities.plot_image_similarities(images[image_index], nearest_images, nearest_sims)
+  
+  # Plot by similarity of tags
+  
+  
+    
 def cluster_by_tags_and_gps(images, folder):
   #images = images[:1000]
   # Shuffle images
@@ -290,7 +307,6 @@ def cluster_by_tags_and_gps(images, folder):
       print "Creating visual codebook"
       codebook = create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors)
       Utilities.save_codebook(folder, codebook)
-    from sklearn.metrics.pairwise import cosine_similarity
     visual_tfidf = generate_histograms(images, codebook)
     Utilities.save_features(folder, visual_tfidf)
   
@@ -329,6 +345,20 @@ def cluster_by_tags_and_gps(images, folder):
   clusters = find_view_clusters(features)
   
   save_clusters(images, clusters, folder + '+' + str(n_codebook))
+  
+  # Plot similarities and images (really ugly code)
+  eduskuntatalo = None
+  tuomiokirkko = None
+  n_nearest = 20 # how many nearest hits to show
+  for img, i in zip(images, range(len(images))):
+    if '15791343418_b8c738bf32_z' in img.image_path:  # image of eduskuntatalo
+      eduskuntatalo = i
+    elif '15991895575_3705685e6c_z' in img.image_path:  # helsingin tuomiokirkko
+      tuomiokirkko = i
+  if eduskuntatalo != None:
+    plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
+  if tuomiokirkko != None:
+    plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
   
   #code.interact(local=locals())
 
