@@ -122,10 +122,12 @@ def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
   except KeyboardInterrupt as e:
     raise e
   except:
-    "Failed at image {}/{}".format(i+1, len(images))
+    print "Failed at image {}/{}".format(i+1, len(images))
   
-  random.shuffle(descriptors)
+  print "Found {} descriptors".format(len(descriptors))
+  
   if n_maxdescriptors != None:
+    random.shuffle(descriptors)
     descriptors = descriptors[:n_maxdescriptors]
   
   print "Clustering {} descriptors into codebook of size {}".format(len(descriptors), n_codebook)
@@ -191,36 +193,24 @@ def find_time_correlated_tags(images):
         print "max:", vocabulary[j]
   
 # Not sure if this can be used
-def create_distance_matrix(visual_tfidf, tags_tfidf):
-  D_visual = cosine_similarity(visual_tfidf)
-  D_tags = cosine_similarity(tags_tfidf)
-  D_tot = np.zeros((n_images, n_images))
-  for i in range(n_images):
-    for j in range(i, n_images):
-      d = D_visual[i, j] * D_tags[i, j]
-      D_tot[i, j] = d
-      D_tot[j, i] = d
-  min_ij = (1, 0)
-  max_ij = (1, 0)
-  min_d = D_tot[1, 0]
-  max_d = D_tot[1, 0]
-  print D_visual
-  print "----"
-  print D_tags
-  for i in range(n_images):
-    for j in range(i, n_images):
-      if i == j:
-        continue
-      d = D_tot[i, j]
-      if d < min_d:
-        min_d = d
-        min_ij = (i, j)
-      elif d > max_d:
-        max_d = d
-        max_ij = (i, j)
-  print "Min:", min_ij, min_d
-  print "Max:", max_ij, max_d
-  return D_tot
+def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
+  n = len(images)
+  S = np.zeros((n, n))
+  print "Computing similarity"
+  for i in range(n):
+    for j in range(i, n):
+      s_vis = visual_tfidf[i].dot(visual_tfidf[j])
+      s_tag = tags_tfidf[i].dot(tags_tfidf[j])
+      s_gps = 0.0
+      sim = s_vis + s_tag + s_gps
+      S[i, j] = sim
+      S[j, i] = sim
+    
+  
+  return S
+  
+def cluster_similarity(S):
+  pass
   
 # Combine visual and tag features
 def combine_features(visual_tfidf, tag_tfidf):
@@ -230,39 +220,80 @@ def combine_features(visual_tfidf, tag_tfidf):
   print tag_tfidf.shape
   features = scipy.sparse.hstack((visual_tfidf, tag_tfidf))
   features = normalize(features, axis=1, norm='l2')
-  
-  code.interact(local=locals())
   return features
 
 # This function searches for clusters
 def find_view_clusters(features):
-  from sklearn.cluster import MeanShift
-  ms = MeanShift()
-  #code.interact(local=locals())
   features = features.toarray()
+  n = features.shape[0]
+  from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
+  ms = MeanShift()
   labels = ms.fit_predict(features)
-  print "Labels:", labels
-  print "Cluster centers:", ms.cluster_centers_
-  #code.interact(local=locals())
+  print "MeanShift Labels:", labels[:10]
+  db = DBSCAN()
+  labels = db.fit_predict(features)
+  print "DBSCAN Labels:", labels[:10]
+  sc = SpectralClustering()
+  labels = sc.fit_predict(features)
+  print "Spectral Labels:", labels
+  km = KMeans(n_clusters=n/5)
+  labels = km.fit_predict(features)
+  print "KMeans Labels:", labels
   
+  #code.interact()
+  
+  return labels
+
+def save_clusters(images, labels, folder):
+  clusters = {}
+  for l in np.unique(labels):
+    clusters[l] = []
+  for i in range(len(labels)):
+    clusters[labels[i]].append(i)
+  for c in clusters:
+    for index in clusters[c]:
+      image = images[index]
+  # Save clusters for easy viewing
+  base_output_folder = './Clusters/' + folder + '/'
+  print "Saving clusters to {}".format(base_output_folder)
+  for c in clusters:
+    input_folder = Utilities.get_folder(images[clusters[c][0]].image_path)
+    output_folder = base_output_folder + '{}/'.format(c)
+    img_paths = []
+    md_paths = []
+    for index in clusters[c]:
+      image = images[index]
+      filename = Utilities.get_filename(image.image_path).split('.')[0] # get rid of folder and extension
+      img_paths.append(filename + '.jpg')
+      md_paths.append(filename + '.txt')
+      #print filename
+    #print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
+    Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
+
 def cluster_by_tags_and_gps(images, folder):
-  images = images[:1000]
+  #images = images[:1000]
   # Shuffle images
   n_images = len(images)
-  print "n_images:", n_images
-  random.shuffle(images)
+  n_codebook = 10000
+  print "n_images:", n_images, "n_codebook:", n_codebook
+  #random.shuffle(images)
   
-  # Create visual codebook
-  n_maxdescriptors = None
-  n_codebook = 5000
-  n_maxfeatures = 1000
-  n_images = len(images)
-  print "Creating visual codebook"
-  codebook = create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors)
+  # Check if visual features have already been computed
+  visual_tfidf = Utilities.load_features(folder, n_codebook)
+  if visual_tfidf == None:
+    # Create visual codebook
+    codebook = Utilities.load_codebook(folder, n_codebook)
+    if codebook == None:
+      n_maxdescriptors = None
+      n_maxfeatures = 1000
+      n_images = len(images)
+      print "Creating visual codebook"
+      codebook = create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors)
+      Utilities.save_codebook(folder, codebook)
+    from sklearn.metrics.pairwise import cosine_similarity
+    visual_tfidf = generate_histograms(images, codebook)
+    Utilities.save_features(folder, visual_tfidf)
   
-  from sklearn.metrics.pairwise import cosine_similarity
-  visual_tfidf = generate_histograms(images, codebook)
-    
   # Create tag vocabulary
   print "Creating tag vocabulary"
   vocabulary = []
@@ -289,15 +320,17 @@ def cluster_by_tags_and_gps(images, folder):
   print "Combining features"
   features = combine_features(visual_tfidf, tags_tfidf)
   
-  print "Clustering views"
-  find_view_clusters(features)  
+  tags_tfidf = tags_tfidf.toarray()
+  gpses = np.array([image.gps for image in images])
+  similarity_matrix = compute_similarity(visual_tfidf, tags_tfidf, gpses, images)
+  cluster_similarity(similarity_matrix)
   
-
-def get_folder_argument():
-  parser = argparse.ArgumentParser(description='This script clusters images of same views')
-  parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
-  args = parser.parse_args()
-  return args.folder_name
+  print "Clustering views"
+  clusters = find_view_clusters(features)
+  
+  save_clusters(images, clusters, folder + '+' + str(n_codebook))
+  
+  #code.interact(local=locals())
 
 def main():
   folder = Utilities.get_folder_argument()
@@ -314,8 +347,6 @@ def main():
   
   # Start the main algorithm
   #test(images, folder)
-  #cluster_images(images)
-  #find_views(images, folder)
   cluster_by_tags_and_gps(images, folder)
 
 if __name__ == '__main__':
