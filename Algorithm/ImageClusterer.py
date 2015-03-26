@@ -273,19 +273,20 @@ def save_clusters(images, labels, folder):
 
 # Plots nearest neighbors visually and then by tags and then together
 def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, gpses):
+  def plot_sims(similarities):
+    image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
+    nearest_pairs = sorted(image_similarities, key=lambda p: p[0], reverse=True)
+    nearest_pairs = nearest_pairs[:n_nearest]
+    nearest_indices = [pair[1] for pair in nearest_pairs]
+    nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
+    nearest_sims = [pair[0] for pair in nearest_pairs]
+    Utilities.plot_image_similarities(nearest_images, nearest_sims)
   # Plot by similarity of visual features
   similarities = cosine_similarity(visual_tfidf)
-  image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
-  nearest_pairs = sorted(image_similarities, key=lambda p: p[0])
-  nearest_pairs = nearest_pairs[:n_nearest]
-  nearest_indices = [pair[1] for pair in nearest_pairs]
-  nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
-  nearest_sims = [pair[0] for pair in nearest_pairs]
-  Utilities.plot_image_similarities(images[image_index], nearest_images, nearest_sims)
-  
+  plot_sims(similarities)  
   # Plot by similarity of tags
-  
-  
+  similarities = cosine_similarity(tags_tfidf)
+  #plot_sims(similarities)  
     
 def cluster_by_tags_and_gps(images, folder):
   #images = images[:1000]
@@ -358,7 +359,7 @@ def cluster_by_tags_and_gps(images, folder):
   if eduskuntatalo != None:
     plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
   if tuomiokirkko != None:
-    plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
+    pass #plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
   
   #code.interact(local=locals())
 
