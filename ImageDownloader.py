@@ -4,6 +4,7 @@ import os, sys, argparse
 from PIL import Image
 import shutil, json
 import StringIO, collections
+import datetime
 
 def get_image_name(url):
   return url.split('/')[-1]
@@ -14,7 +15,7 @@ def download_image(url):
   image = Image.open(s)
   return image
 
-def save_image_and_data(image_folder, url, title, id, owner, tags, description, gps):
+def save_image_and_data(image_folder, url, title, id, owner, tags, description, gps, datetaken):
   # Make folder if it doesn't exist
   if not os.path.exists(image_folder):
     os.makedirs(image_folder)
@@ -36,11 +37,12 @@ def save_image_and_data(image_folder, url, title, id, owner, tags, description, 
   metadata['tags'] = tags
   metadata['description'] = description
   metadata['gps'] = gps
+  metadata['datetaken'] = datetaken
   text_path = image_folder + name.split('.')[0] + '.txt'
   with open(text_path, 'w') as f:
     json.dump(metadata, f)
 
-def main(argv):
+def main():
   with open('API key here.txt', 'r') as f:
     lines = f.read().splitlines()
     if len(lines) >= 2:
@@ -66,14 +68,35 @@ def main(argv):
 
   new_york_id = 2459115
   helsinki_id = 565346
-  per_page = min(image_dl_count, 300)
   photos = []
-  for page in range(image_dl_count / per_page):
-    page_photos = flickr.photos_search(woe_id = helsinki_id, has_geo = 1, per_page = per_page, page = page, min_taken_date=315532800)
-    photos.extend(page_photos)
+  months_to_dl_from = 60
+  per_page = min(image_dl_count, 100)
+  for months_back in range(months_to_dl_from * 30):
+    out_of_photos = False
+    while not out_of_photos and len(photos) < image_dl_count:
+      max_taken = datetime.date.today() - datetime.timedelta(days=months_back)#months_back * 30)
+      min_taken = max_taken - datetime.timedelta(days=1)#30)
+      page = 0
+      photos_found = 0
+      while True:
+        page_photos = flickr.photos_search(woe_id=helsinki_id, has_geo=1, per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken)
+        if len(page_photos) == 0:
+          out_of_photos = True
+          break
+        page += 1
+        photos_found += len(page_photos)
+        for photo in page_photos: # day-wise downloading changes
+          if photo not in photos:
+            photos.append(photo)
+        #photos.extend(page_photos)
+        if len(photos) >= image_dl_count:
+          break
+      print "Found", photos_found, "photos between", min_taken, max_taken
   print "Found", len(photos), "photos"
   urls = []
   failed_downloads = 0
+  if len(photos) > image_dl_count:
+    photos = photos[:image_dl_count]
   for i in range(len(photos)):
     try:
       print "Downloading photos... {}/{}\r".format(i+1, len(photos)),
@@ -89,14 +112,14 @@ def main(argv):
       gps = photo.getLocation()
       id = photo.id.encode('utf-8')
       owner = photo.owner.id.encode('utf-8')
+      datetaken = photo.datetaken
       if save_images:
-        save_image_and_data(image_folder, url, title, id, owner, tags, description, gps)
-    except:
-      print "Exception while downloading photo at index {}".format(i)
+        save_image_and_data(image_folder, url, title, id, owner, tags, description, gps, datetaken)
+    except KeyboardInterrupt:
+      raise
+    except Exception as e:
+      print "Exception while downloading photo at index {}:".format(i), e
       failed_downloads += 1
-    '''exif = photo.getExif()
-    for tag in exif.tags:
-      print '%s: %s' % (tag.label, tag.raw)'''
 
   print "Photos:", len(photos), "Successful downloads:", len(photos) - failed_downloads
   seen = set()
@@ -105,4 +128,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-  main(sys.argv[1:])
+  main()

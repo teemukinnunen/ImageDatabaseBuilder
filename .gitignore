@@ -2,7 +2,15 @@
 Libs/
 Images/
 */*.jpg
+*/*/*.jpg
 */*.txt
+Algorithm/vocpy-master/
+Algorithm/featuredata/
+BACKUP/
+*.json
+*.npy
+*.txt
+*.jpg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
